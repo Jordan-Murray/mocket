@@ -26,5 +26,5 @@ jobs:
         with:
           push: true
           tags: latest
-          context: .
+          context: Mocket/
           file: Dockerfile
