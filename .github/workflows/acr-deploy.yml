@@ -1,4 +1,4 @@
-name: Docker
+name: Build and Push to ACR
 
 on:
   push:
@@ -27,3 +27,4 @@ jobs:
           push: true
           tags: latest
           context: .
+          file: Dockerfile
