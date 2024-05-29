@@ -43,7 +43,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             {
                 var azp = context.Principal?.FindFirstValue("azp");
                 // AuthorizedParty is the base URL of your frontend.
-                if (string.IsNullOrEmpty(azp) || !azp.Equals(builder.Configuration["Jwt:Azp"]))
+                if (string.IsNullOrEmpty(azp) || !azp.Equals(builder.Configuration["Jwt:Azp"]) || !azp.Equals("http://localhost:3000/"))
                     context.Fail("AZP Claim is invalid or missing");
 
                 return Task.CompletedTask;
