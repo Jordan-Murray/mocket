@@ -1,7 +1,9 @@
+using Clerk.Net.DependencyInjection;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Azure.Cosmos;
 using Microsoft.IdentityModel.Tokens;
 using Mocket.Services;
+using System.Security.Claims;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -13,19 +15,39 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddSingleton<ICosmosDbService>(InitializeCosmosClientInstanceAsync(builder.Configuration.GetSection("CosmosDb")).GetAwaiter().GetResult());
 
+builder.Services.AddClerkApiClient(config =>
+{
+    config.SecretKey = builder.Configuration["Jwt:Key"];
+});
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+    .AddJwtBearer(x =>
     {
-        options.RequireHttpsMetadata = false;
-        options.SaveToken = true;
-        options.TokenValidationParameters = new TokenValidationParameters
+        // Authority is the URL of your clerk instance
+        x.Authority = builder.Configuration["Jwt:Authority"];
+        x.TokenValidationParameters = new TokenValidationParameters()
         {
-            ValidateIssuer = true,
-            ValidateAudience = false, // couldn't get it working :(
+            // Disable audience validation as we aren't using it
+            ValidateAudience = false,
+            NameClaimType = ClaimTypes.NameIdentifier,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(builder.Configuration["Jwt:Key"]))
+            ValidateIssuer = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(builder.Configuration["Jwt:Key"])),
+            ValidIssuer = builder.Configuration["Jwt:Issuer"]
+        };
+        x.Events = new JwtBearerEvents()
+        {
+            // Additional validation for AZP claim
+            OnTokenValidated = context =>
+            {
+                var azp = context.Principal?.FindFirstValue("azp");
+                // AuthorizedParty is the base URL of your frontend.
+                if (string.IsNullOrEmpty(azp) || !azp.Equals(builder.Configuration["Jwt:Azp"]))
+                    context.Fail("AZP Claim is invalid or missing");
+
+                return Task.CompletedTask;
+            }
         };
     });
 
